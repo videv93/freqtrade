@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 
 
 class IDataHandler(ABC):
-    _OHLCV_REGEX = r"^([a-zA-Z_\d-]+)\-(\d+[a-zA-Z]{1,2})\-?([a-zA-Z_]*)?(?=\.)"
-    _TRADES_REGEX = r"^([a-zA-Z_\d-]+)\-(trades)?(?=\.)"
+    _OHLCV_REGEX = r"^([\w-]+)\-(\d+[a-zA-Z]{1,2})\-?([a-zA-Z_]*)?(?=\.)"
+    _TRADES_REGEX = r"^([\w-]+)\-(trades)?(?=\.)"
 
     def __init__(self, datadir: Path) -> None:
         self._datadir = datadir
@@ -69,28 +69,6 @@ class IDataHandler(ABC):
             for match in _tmp
             if match and len(match.groups()) > 1
         ]
-
-    @classmethod
-    def ohlcv_get_pairs(cls, datadir: Path, timeframe: str, candle_type: CandleType) -> list[str]:
-        """
-        Returns a list of all pairs with ohlcv data available in this datadir
-        for the specified timeframe
-        :param datadir: Directory to search for ohlcv files
-        :param timeframe: Timeframe to search pairs for
-        :param candle_type: Any of the enum CandleType (must match trading mode!)
-        :return: List of Pairs
-        """
-        candle = ""
-        if candle_type != CandleType.SPOT:
-            datadir = datadir.joinpath("futures")
-            candle = f"-{candle_type}"
-        ext = cls._get_file_extension()
-        _tmp = [
-            re.search(r"^(\S+)(?=\-" + timeframe + candle + f".{ext})", p.name)
-            for p in datadir.glob(f"*{timeframe}{candle}.{ext}")
-        ]
-        # Check if regex found something and only return these results
-        return [cls.rebuild_pair_from_filename(match[0]) for match in _tmp if match]
 
     @abstractmethod
     def ohlcv_store(
@@ -358,11 +336,10 @@ class IDataHandler(ABC):
     def rebuild_pair_from_filename(pair: str) -> str:
         """
         Rebuild pair name from filename
-        Assumes a asset name of max. 7 length to also support BTC-PERP and BTC-PERP:USD names.
+        Replaces the first '_' with '/' and the second '_' (if present) with ':'.
+        e.g. BTC_USDT -> BTC/USDT, BTC_USDT_USDT -> BTC/USDT:USDT
         """
-        res = re.sub(r"^(([A-Za-z\d]{1,10})|^([A-Za-z\-]{1,6}))(_)", r"\g<1>/", pair, count=1)
-        res = re.sub("_", ":", res, count=1)
-        return res
+        return pair.replace("_", "/", 1).replace("_", ":", 1)
 
     def ohlcv_load(
         self,
@@ -397,6 +374,9 @@ class IDataHandler(ABC):
         pairdf = self._ohlcv_load(
             pair, timeframe, timerange=timerange_startup, candle_type=candle_type
         )
+        if not pairdf.empty and candle_type == CandleType.FUNDING_RATE:
+            # Funding rate data is sometimes off by a couple of ms - floor to seconds
+            pairdf["date"] = pairdf["date"].dt.floor("s")
         if self._check_empty_df(pairdf, pair, timeframe, candle_type, warn_no_data):
             return pairdf
         else:
@@ -508,8 +488,15 @@ class IDataHandler(ABC):
         Applies to bybit and okx, where funding-fee and mark candles have different timeframes.
         """
         paircombs = self.ohlcv_get_available_data(self._datadir, TradingMode.FUTURES)
+        ff_timeframe_s = timeframe_to_seconds(ff_timeframe)
+
         funding_rate_combs = [
-            f for f in paircombs if f[2] == CandleType.FUNDING_RATE and f[1] != ff_timeframe
+            f
+            for f in paircombs
+            if f[2] == CandleType.FUNDING_RATE
+            and f[1] != ff_timeframe
+            # Only allow smaller timeframes to move from smaller to larger timeframes
+            and timeframe_to_seconds(f[1]) < ff_timeframe_s
         ]
 
         if funding_rate_combs:

@@ -239,7 +239,7 @@ Kucoin supports [time_in_force](configuration.md#understand-order_time_in_force)
 
 ### Kucoin Blacklists
 
-For Kucoin, it is suggested to add `"KCS/<STAKE>"` to your blacklist to avoid issues, unless you are willing to maintain enough extra `KCS` on the account or unless you're willing to disable using `KCS` for fees. 
+For Kucoin, it is suggested to add `"KCS/<STAKE>"` to your blacklist to avoid issues, unless you are willing to maintain enough extra `KCS` on the account or unless you're willing to disable using `KCS` for fees.
 Kucoin accounts may use `KCS` for fees, and if a trade happens to be on `KCS`, further trades may consume this position and make the initial `KCS` trade unsellable as the expected amount is not there anymore.
 
 ## HTX
@@ -318,7 +318,6 @@ API Keys for live futures trading must have the following permissions:
 * Contract - Positions
 
 We do strongly recommend to limit all API keys to the IP you're going to use it from.
-
 
 ## Bitmart
 
@@ -428,6 +427,38 @@ Your balance and trades will now be used from your vault / subaccount - and no l
 
 The Hyperliquid API does not provide historic data beyond the single call to fetch current data, so downloading data is not possible, as the downloaded data would not constitute proper historic data.
 
+### HIP-3 DEXes
+
+Hyperliquid supports HIP-3 decentralized exchanges (DEXes), which are independent exchanges built on top of the Hyperliquid infrastructure.
+These DEXes operate similarly to the main Hyperliquid exchange but are community-created and managed.
+
+To trade on HIP-3 DEXes with Freqtrade, you need to add them to your configuration using the `hip3_dexes` parameter:
+
+```json
+"exchange": {
+    "name": "hyperliquid",
+    "walletAddress": "your_master_wallet_address",
+    "privateKey": "your_api_private_key",
+    "hip3_dexes": ["dex_name_1", "dex_name_2"]
+}
+```
+
+Replace `"dex_name_1"` and `"dex_name_2"` with the actual names of the HIP-3 DEXes you want to trade on (e.g. `vntl` and `xyz`).
+
+!!! Warning "Performance and Rate Limit Impact"
+    Each HIP-3 DEX you add significantly impacts bot performance and rate limits.
+
+    * **Additional API Calls**: For each HIP-3 DEX configured, Freqtrade needs to make additional API calls.
+    * **Rate Limit Pressure**: Additional API calls contribute to Hyperliquid's strict rate limits. With multiple DEXes, you may hit rate limits faster, or rather, slow down bot operations due to enforced delays.
+
+    Please only add HIP-3 DEXes that you actively trade on. Monitor your logs for rate limit warnings or signs of slowed operations, and adjust your configuration accordingly.  
+    Different HIP-3 DEXes may also use different quote currencies - so make sure to only add DEXes that are compatible with your stake currency to avoid unnecessary delays.
+
+!!! Note
+    HIP-3 DEXes share the same wallet and free amount of collateral as your main Hyperliquid account. Trades on different DEXes will affect your overall account balance and margin.
+
+    The pair name for HIP-3 pairs will be slightly different than non HIP-3 pairs. Please use `list-pairs` subcommand to get the correct pair naming for all pairs for the specified dexes.
+
 ## Bitvavo
 
 If your account is required to use an operatorId, you can set it in the configuration file as follows:
@@ -491,5 +522,5 @@ For example, to test the order type `FOK` with Kraken, and modify candle limit t
 
 !!! Warning
     Please make sure to fully understand the impacts of these settings before modifying them.
-    Using `_ft_has_params` overrides may lead to unexpected behavior, and may even break your bot. 
+    Using `_ft_has_params` overrides may lead to unexpected behavior, and may even break your bot.
     We will not be able to provide support for issues caused by custom settings in `_ft_has_params`.

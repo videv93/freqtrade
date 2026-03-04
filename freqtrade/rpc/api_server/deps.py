@@ -5,7 +5,7 @@ from uuid import uuid4
 from fastapi import Depends, HTTPException
 
 from freqtrade.constants import Config
-from freqtrade.enums import RunMode
+from freqtrade.enums import TRADE_MODES, RunMode
 from freqtrade.persistence import Trade
 from freqtrade.persistence.models import _request_id_ctx_var
 from freqtrade.rpc.api_server.webserver_bgwork import ApiBG
@@ -69,3 +69,18 @@ def is_webserver_mode(config=Depends(get_config)):
     if config["runmode"] != RunMode.WEBSERVER:
         raise HTTPException(status_code=503, detail="Bot is not in the correct state.")
     return None
+
+
+def is_trading_mode(config=Depends(get_config)):
+    if config["runmode"] not in TRADE_MODES:
+        raise HTTPException(status_code=503, detail="Bot is not in the correct state.")
+    return None
+
+
+def verify_strategy(strategy: str | None):
+    """Verify that the strategy name is valid (not base64 encoded).
+    This is a security measure to prevent potential attacks using base64 encoded strategies.
+    This should be called for every endpoint that accepts a strategy name as a parameter.
+    """
+    if strategy is not None and ":" in strategy:
+        raise HTTPException(status_code=422, detail="base64 encoded strategies are not allowed.")

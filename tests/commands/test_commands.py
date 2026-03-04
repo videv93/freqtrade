@@ -83,6 +83,30 @@ def test_setup_utils_configuration():
     assert config["dry_run"] is False
 
 
+def test_setup_utils_configuration_download_convert_flag():
+    args = [
+        "download-data",
+        "--exchange",
+        "kraken",
+        "--pairs",
+        "ETH/USDT",
+        "--dl-trades",
+        "--convert",
+        "-t",
+        "1m",
+        "--timerange",
+        "20260101-",
+        "--config",
+        "tests/testdata/testconfigs/main_test_config.json",
+    ]
+
+    config = setup_utils_configuration(get_args(args), RunMode.UTIL_EXCHANGE)
+
+    assert config["download_trades"] is True
+    assert config["convert_trades"] is True
+    assert config["timeframes"] == ["1m"]
+
+
 def test_start_trading_fail(mocker, caplog):
     mocker.patch("freqtrade.worker.Worker.run", MagicMock(side_effect=OperationalException))
 
@@ -1767,7 +1791,7 @@ def test_start_list_data(testdatadir, capsys):
     pargs["config"] = None
     start_list_data(pargs)
     captured = capsys.readouterr()
-    assert "Found 16 pair / timeframe combinations." in captured.out
+    assert "Found 18 pair / timeframe combinations." in captured.out
     assert re.search(r".*Pair.*Timeframe.*Type.*\n", captured.out)
     assert re.search(r"\n.* UNITTEST/BTC .* 1m, 5m, 8m, 30m .* spot |\n", captured.out)
 
@@ -1801,10 +1825,10 @@ def test_start_list_data(testdatadir, capsys):
     start_list_data(pargs)
     captured = capsys.readouterr()
 
-    assert "Found 6 pair / timeframe combinations." in captured.out
+    assert "Found 5 pair / timeframe combinations." in captured.out
     assert re.search(r".*Pair.*Timeframe.*Type.*\n", captured.out)
     assert re.search(r"\n.* XRP/USDT:USDT .* 5m, 1h .* futures |\n", captured.out)
-    assert re.search(r"\n.* XRP/USDT:USDT .* 1h, 8h .* mark |\n", captured.out)
+    assert re.search(r"\n.* XRP/USDT:USDT .* 1h.* mark |\n", captured.out)
 
     args = [
         "list-data",

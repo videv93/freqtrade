@@ -225,7 +225,7 @@ class AwesomeStrategy(IStrategy):
         e.g. returning -0.05 would create a stoploss 5% below current_rate.
         The custom stoploss can never be below self.stoploss, which serves as a hard maximum loss.
 
-        For full documentation please go to https://www.freqtrade.io/en/latest/strategy-advanced/
+        For full documentation please go to https://www.freqtrade.io/en/stable/strategy-advanced/
 
         When not implemented by a strategy, returns the initial stoploss value.
         Only called when use_custom_stoploss is set to True.
@@ -634,7 +634,7 @@ class AwesomeStrategy(IStrategy):
 
 ## Custom order price rules
 
-By default, freqtrade use the orderbook to automatically set an order price([Relevant documentation](configuration.md#prices-used-for-orders)), you also have the option to create custom order prices based on your strategy.
+By default, freqtrade use the orderbook to automatically set an order price ([Relevant documentation](configuration.md#prices-used-for-orders)), you also have the option to create custom order prices based on your strategy.
 
 You can use this feature by creating a `custom_entry_price()` function in your strategy file to customize entry prices and `custom_exit_price()` for exits.
 
@@ -644,7 +644,7 @@ Each of these methods are called right before placing an order on the exchange.
     If your custom pricing function return None or an invalid value, price will fall back to `proposed_rate`, which is based on the regular pricing configuration.
 
 !!! Note
-    Using custom_entry_price, the Trade object will be available as soon as the first entry order associated with the trade is created, for the first entry, `trade` parameter value will be `None`.
+    When using `custom_entry_price()`, the Trade object will be available as soon as the first entry order associated with the trade is created, for the first entry, `trade` parameter value will be `None`.
 
 ### Custom order entry and exit price example
 
@@ -805,7 +805,7 @@ class AwesomeStrategy(IStrategy):
         Timing for this function is critical, so avoid doing heavy computations or
         network requests in this method.
 
-        For full documentation please go to https://www.freqtrade.io/en/latest/strategy-advanced/
+        For full documentation please go to https://www.freqtrade.io/en/stable/strategy-advanced/
 
         When not implemented by a strategy, returns True (always confirming).
 
@@ -853,7 +853,7 @@ class AwesomeStrategy(IStrategy):
         Timing for this function is critical, so avoid doing heavy computations or
         network requests in this method.
 
-        For full documentation please go to https://www.freqtrade.io/en/latest/strategy-advanced/
+        For full documentation please go to https://www.freqtrade.io/en/stable/strategy-advanced/
 
         When not implemented by a strategy, returns True (always confirming).
 
@@ -991,7 +991,7 @@ class DigDeeperStrategy(IStrategy):
         This means extra entry or exit orders with additional fees.
         Only called when `position_adjustment_enable` is set to True.
 
-        For full documentation please go to https://www.freqtrade.io/en/latest/strategy-advanced/
+        For full documentation please go to https://www.freqtrade.io/en/stable/strategy-advanced/
 
         When not implemented by a strategy, returns None
 
@@ -1118,7 +1118,7 @@ class AwesomeStrategy(IStrategy):
         This only executes when a order was already placed, still open (unfilled fully or partially)
         and not timed out on subsequent candles after entry trigger.
 
-        For full documentation please go to https://www.freqtrade.io/en/latest/strategy-callbacks/
+        For full documentation please go to https://www.freqtrade.io/en/stable/strategy-callbacks/
 
         When not implemented by a strategy, returns current_order_rate as default.
         If current_order_rate is returned then the existing order is maintained.
@@ -1292,6 +1292,23 @@ Currently two types of annotations are supported, `area` and `line`.
 }
 ```
 
+#### Point
+
+``` json
+{
+    "type": "point", // Type of the annotation, currently only "point" is supported
+    "x": "2024-01-01 15:00:00", // Start date of the point
+    "y": 94000.2,  // Price / y axis value
+    "color": "",
+    "z_level": 5, // z-level, higher values are drawn on top of lower values. Positions relative to the Chart elements need to be set in freqUI.
+    "label": "some label",
+    "size": 2, // Optional, line width in pixels. Defaults to 10
+    "shape": "circle", // Optional, can be "circle", "rect", "roundRect", "triangle", "pin", "arrow", "none".
+    "rotate": 0, // Optional, rotation of the shape/symbol in degrees. Defaults to 0
+
+}
+```
+
 The below example will mark the chart with areas for the hours 8 and 15, with a grey color, highlighting the market open and close hours.
 This is obviously a very basic example.
 
@@ -1369,7 +1386,7 @@ Entries will be validated, and won't be passed to the UI if they don't correspon
                         }
                     )
                 elif (start_dt.hour % 2) == 0:
-                price = dataframe.loc[dataframe["date"] == start_dt, ["close"]].mean()
+                price = dataframe.loc[dataframe["date"] == start_dt, "close"].mean()
                     annotations.append(
                         {
                             "type": "area",

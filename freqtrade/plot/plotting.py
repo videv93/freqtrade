@@ -75,11 +75,11 @@ def init_plotscript(config, markets: list, startup_candles: int = 0):
         )
 
     no_trades = False
-    filename = config.get("exportfilename")
+    filename = config.get("exportfilename") or config.get("exportdirectory")
     if config.get("no_trades", False):
         no_trades = True
     elif config["trade_source"] == "file":
-        if not filename.is_dir() and not filename.is_file():
+        if not filename or (not filename.is_dir() and not filename.is_file()):
             logger.warning("Backtest file is missing skipping trades.")
             no_trades = True
     try:
@@ -261,10 +261,12 @@ def plot_trades(fig, trades: pd.DataFrame) -> make_subplots:
     if trades is not None and len(trades) > 0:
         # Create description for exit summarizing the trade
         trades["desc"] = trades.apply(
-            lambda row: f"{row['profit_ratio']:.2%}, "
-            + (f"{row['enter_tag']}, " if row["enter_tag"] is not None else "")
-            + f"{row['exit_reason']}, "
-            + f"{row['trade_duration']} min",
+            lambda row: (
+                f"{row['profit_ratio']:.2%}, "
+                + (f"{row['enter_tag']}, " if row["enter_tag"] is not None else "")
+                + f"{row['exit_reason']}, "
+                + f"{row['trade_duration']} min"
+            ),
             axis=1,
         )
         trade_entries = go.Scatter(

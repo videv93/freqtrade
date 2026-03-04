@@ -372,8 +372,8 @@ def test_borrowed(fee, is_short, lev, borrowed, trading_mode):
 @pytest.mark.parametrize(
     "is_short,open_rate,close_rate,lev,profit,trading_mode",
     [
-        (False, 2.0, 2.2, 1.0, 0.09451372, spot),
-        (True, 2.2, 2.0, 3.0, 0.25894253, margin),
+        (False, 2, 2.2, 1, 0.09451372, spot),
+        (True, 2.2, 2.0, 3, 0.25894253, margin),
     ],
 )
 @pytest.mark.usefixtures("init_persistence")
@@ -493,8 +493,8 @@ def test_update_limit_order(
     assert trade.close_date is None
     assert log_has_re(
         f"LIMIT_{entry_side.upper()} has been fulfilled for "
-        r"Trade\(id=2, pair=ADA/USDT, amount=30.00000000, "
-        f"is_short={is_short}, leverage={lev}, open_rate={open_rate}0000000, "
+        r"Trade\(id=2, pair=ADA/USDT, amount=30, "
+        f"is_short={is_short}, leverage={lev}, open_rate={open_rate}, "
         r"open_since=.*\).",
         caplog,
     )
@@ -511,8 +511,8 @@ def test_update_limit_order(
     assert trade.close_date is not None
     assert log_has_re(
         f"LIMIT_{exit_side.upper()} has been fulfilled for "
-        r"Trade\(id=2, pair=ADA/USDT, amount=30.00000000, "
-        f"is_short={is_short}, leverage={lev}, open_rate={open_rate}0000000, "
+        r"Trade\(id=2, pair=ADA/USDT, amount=30, "
+        f"is_short={is_short}, leverage={lev}, open_rate={open_rate}, "
         r"open_since=.*\).",
         caplog,
     )
@@ -545,8 +545,8 @@ def test_update_market_order(market_buy_order_usdt, market_sell_order_usdt, fee,
     assert trade.close_date is None
     assert log_has_re(
         r"MARKET_BUY has been fulfilled for Trade\(id=1, "
-        r"pair=ADA/USDT, amount=30.00000000, is_short=False, leverage=1.0, "
-        r"open_rate=2.00000000, open_since=.*\).",
+        r"pair=ADA/USDT, amount=30, is_short=False, leverage=1, "
+        r"open_rate=2, open_since=.*\).",
         caplog,
     )
 
@@ -561,8 +561,8 @@ def test_update_market_order(market_buy_order_usdt, market_sell_order_usdt, fee,
     assert trade.close_date is not None
     assert log_has_re(
         r"MARKET_SELL has been fulfilled for Trade\(id=1, "
-        r"pair=ADA/USDT, amount=30.00000000, is_short=False, leverage=1.0, "
-        r"open_rate=2.00000000, open_since=.*\).",
+        r"pair=ADA/USDT, amount=30, is_short=False, leverage=1, "
+        r"open_rate=2, open_since=.*\).",
         caplog,
     )
 
@@ -1479,6 +1479,8 @@ def test_to_json(fee):
         "contract_size": 1,
         "orders": [],
         "has_open_orders": False,
+        "nr_of_successful_entries": 0,
+        "nr_of_successful_exits": 0,
     }
 
     # Simulate dry_run entries
@@ -1570,6 +1572,8 @@ def test_to_json(fee):
         "contract_size": 1,
         "orders": [],
         "has_open_orders": False,
+        "nr_of_successful_entries": 0,
+        "nr_of_successful_exits": 0,
     }
 
 
@@ -2889,3 +2893,49 @@ def test_recalc_trade_from_orders_dca(data) -> None:
     trade = Trade.session.scalars(select(Trade)).first()
     assert trade
     assert not trade.has_open_orders
+
+
+@pytest.mark.parametrize(
+    "is_short,lev,trading_mode",
+    [
+        (False, 1, spot),
+        (False, 1, margin),
+        (False, 10, margin),
+        (False, 1, futures),
+        (False, 10, futures),
+        (True, 1, margin),
+        (True, 10, margin),
+        (True, 1, futures),
+        (True, 10, futures),
+    ],
+)
+@pytest.mark.usefixtures("init_persistence")
+def test_close_rate_for_roi(fee, is_short, lev, trading_mode):
+    """
+    Ensure calc_close_rate_for_roi is consistent with calc_profit_ratio.
+    """
+    open_dt = datetime.fromisoformat("2022-01-01 00:00:00")
+    trade_duration = timedelta(days=10)
+    trade = Trade(
+        id=2,
+        pair="ADA/USDT",
+        stake_amount=60.0,
+        open_rate=2.0,
+        amount=30.0,
+        is_open=True,
+        open_date=open_dt,
+        close_date=open_dt + trade_duration,  # to trigger interest calculation in margin mode
+        fee_open=fee.return_value,
+        fee_close=fee.return_value,
+        exchange="binance",
+        is_short=is_short,
+        leverage=lev,
+        trading_mode=trading_mode,
+        interest_rate=0.0005,
+        funding_fees=0.1234,
+    )
+    for roi in [0.1337, 0.5, -0.1, 0.25]:
+        close_rate = trade.calc_close_rate_for_roi(roi)
+        assert roi == trade.calc_profit_ratio(close_rate), (
+            f"Failed for ROI {roi}, close_rate {close_rate}"
+        )

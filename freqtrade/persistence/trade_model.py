@@ -48,7 +48,7 @@ from freqtrade.leverage import interest
 from freqtrade.misc import safe_value_fallback
 from freqtrade.persistence.base import ModelBase, SessionType
 from freqtrade.persistence.custom_data import CustomDataWrapper, _CustomData
-from freqtrade.util import FtPrecise, dt_from_ts, dt_now, dt_ts, dt_ts_none
+from freqtrade.util import FtPrecise, dt_from_ts, dt_now, dt_ts, dt_ts_none, round_value
 
 
 logger = logging.getLogger(__name__)
@@ -654,9 +654,10 @@ class LocalTrade:
         )
 
         return (
-            f"Trade(id={self.id}, pair={self.pair}, amount={self.amount:.8f}, "
-            f"is_short={self.is_short or False}, leverage={self.leverage or 1.0}, "
-            f"open_rate={self.open_rate:.8f}, open_since={open_since})"
+            f"Trade(id={self.id}, pair={self.pair}, amount={round_value(self.amount, 8)}, "
+            f"is_short={self.is_short or False}, "
+            f"leverage={round_value(self.leverage or 1.0, 1)}, "
+            f"open_rate={round_value(self.open_rate, 8)}, open_since={open_since})"
         )
 
     def to_json(self, minified: bool = False) -> dict[str, Any]:
@@ -755,6 +756,8 @@ class LocalTrade:
             "precision_mode": self.precision_mode,
             "precision_mode_price": self.precision_mode_price,
             "contract_size": self.contract_size,
+            "nr_of_successful_entries": self.nr_of_successful_entries,
+            "nr_of_successful_exits": self.nr_of_successful_exits,
             "has_open_orders": self.has_open_orders,
             "orders": orders_json,
         }
@@ -1204,6 +1207,35 @@ class LocalTrade:
                 profit_ratio = ((close_trade_value / open_trade_value) - 1) * self.leverage
 
         return float(f"{profit_ratio:.8f}")
+
+    def calc_close_rate_for_roi(self, target_roi: float) -> float:
+        """
+        Calculate the required close price to reach a target ROI.
+        Must match the logic used in `calc_profit_ratio()`.
+
+        :param target_roi: The desired return on investment (as a decimal, e.g., 0.05 for 5%)
+        :return: Close price (rate) required to achieve the target ROI
+        """
+        leverage = float(self.leverage or 1.0)
+        deleveraged_roi = float(target_roi) / leverage
+
+        open_value = self._calc_open_trade_value(self.amount, self.open_rate)
+
+        # The ROI formula uses close_value(rate), which depends on trading mode:
+        # - SPOT: linear in rate, adjusted by close fee
+        # - MARGIN: same, but long subtracts interest, short increases amount
+        # - FUTURES: adds/subtracts funding to/from close value
+        # All cases are affine in rate:
+        #     close_value(rate) = a * rate + b
+        # We extract a and b by probing close_value at rate = 0 and 1.
+        value_at_0 = self.calc_close_trade_value(0.0)
+        value_at_1 = self.calc_close_trade_value(1.0)
+        alpha = value_at_1 - value_at_0
+        beta = value_at_0
+
+        s = -1.0 if self.is_short else 1.0
+        adj = 1.0 + (deleveraged_roi / s)
+        return (adj * open_value - beta) / alpha
 
     def recalc_trade_from_orders(self, *, is_closing: bool = False):
         ZERO = FtPrecise(0.0)

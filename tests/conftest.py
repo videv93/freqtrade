@@ -604,6 +604,7 @@ def get_default_conf(testdatadir):
         "cancel_open_orders_on_exit": False,
         "minimal_roi": {"40": 0.0, "30": 0.01, "20": 0.02, "0": 0.04},
         "dry_run_wallet": 1000,
+        "tradable_balance_ratio": 0.99,
         "stoploss": -0.10,
         "unfilledtimeout": {"entry": 10, "exit": 30},
         "entry_pricing": {
@@ -3184,7 +3185,7 @@ def leverage_tiers():
             },
             {
                 "minNotional": 5000000,
-                "maxNotional": 30000000,
+                "maxNotional": None,
                 "maintenanceMarginRate": 0.5,
                 "maxLeverage": 1,
                 "maintAmt": 1527500.0,

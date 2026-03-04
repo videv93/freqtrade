@@ -43,6 +43,7 @@ def test_hyperopt_int_parameter():
 
     HyperoptStateContainer.set_state(HyperoptState.OPTIMIZE)
     assert len(list(intpar.range)) == 1
+    assert intpar.param_type == "IntParameter"
 
 
 def test_hyperopt_real_parameter():
@@ -60,11 +61,11 @@ def test_hyperopt_real_parameter():
     assert isinstance(fltpar.get_space(""), FloatDistribution)
 
     assert not hasattr(fltpar, "range")
+    assert fltpar.param_type == "RealParameter"
 
 
 def test_hyperopt_decimal_parameter():
     HyperoptStateContainer.set_state(HyperoptState.INDICATORS)
-    # TODO: Check for get_space??
     from freqtrade.optimize.space import SKDecimal
 
     with pytest.raises(OperationalException, match=r"DecimalParameter space must be.*"):
@@ -95,6 +96,7 @@ def test_hyperopt_decimal_parameter():
 
     HyperoptStateContainer.set_state(HyperoptState.OPTIMIZE)
     assert len(list(decimalpar.range)) == 1
+    assert decimalpar.param_type == "DecimalParameter"
 
 
 def test_hyperopt_categorical_parameter():
@@ -134,3 +136,5 @@ def test_hyperopt_categorical_parameter():
     HyperoptStateContainer.set_state(HyperoptState.OPTIMIZE)
     assert len(list(catpar.range)) == 1
     assert len(list(boolpar.range)) == 1
+    assert boolpar.param_type == "BooleanParameter"
+    assert catpar.param_type == "CategoricalParameter"

@@ -24,34 +24,6 @@ from freqtrade.exceptions import OperationalException
 from tests.conftest import log_has, log_has_re
 
 
-def test_datahandler_ohlcv_get_pairs(testdatadir):
-    pairs = FeatherDataHandler.ohlcv_get_pairs(testdatadir, "5m", candle_type=CandleType.SPOT)
-    # Convert to set to avoid failures due to sorting
-    assert set(pairs) == {
-        "UNITTEST/BTC",
-        "XLM/BTC",
-        "ETH/BTC",
-        "TRX/BTC",
-        "LTC/BTC",
-        "XMR/BTC",
-        "ZEC/BTC",
-        "ADA/BTC",
-        "ETC/BTC",
-        "NXT/BTC",
-        "DASH/BTC",
-        "XRP/ETH",
-    }
-
-    pairs = JsonGzDataHandler.ohlcv_get_pairs(testdatadir, "8m", candle_type=CandleType.SPOT)
-    assert set(pairs) == {"UNITTEST/BTC"}
-
-    pairs = FeatherDataHandler.ohlcv_get_pairs(testdatadir, "1h", candle_type=CandleType.MARK)
-    assert set(pairs) == {"UNITTEST/USDT:USDT", "XRP/USDT:USDT"}
-
-    pairs = JsonGzDataHandler.ohlcv_get_pairs(testdatadir, "1h", candle_type=CandleType.FUTURES)
-    assert set(pairs) == {"XRP/USDT:USDT"}
-
-
 @pytest.mark.parametrize(
     "filename,pair,timeframe,candletype",
     [
@@ -84,9 +56,9 @@ def test_datahandler_ohlcv_regex(filename, pair, timeframe, candletype):
         ("USDT_BUSD", "USDT/BUSD"),
         ("BTC_USDT_USDT", "BTC/USDT:USDT"),  # Futures
         ("XRP_USDT_USDT", "XRP/USDT:USDT"),  # futures
-        ("BTC-PERP", "BTC-PERP"),
-        ("BTC-PERP_USDT", "BTC-PERP:USDT"),
+        ("XYZ-XRP_USDT_USDT", "XYZ-XRP/USDT:USDT"),  # hip3 futures
         ("UNITTEST_USDT", "UNITTEST/USDT"),
+        ("币安人生_USDT_USDT", "币安人生/USDT:USDT"),  # futures
     ],
 )
 def test_rebuild_pair_from_filename(pair, expected):
@@ -111,6 +83,8 @@ def test_datahandler_ohlcv_get_available_data(testdatadir):
         ("DASH/BTC", "5m", CandleType.SPOT),
         ("XRP/ETH", "1m", CandleType.SPOT),
         ("XRP/ETH", "5m", CandleType.SPOT),
+        ("BTC/USDT", "5m", CandleType.SPOT),
+        ("XRP/USDT", "5m", CandleType.SPOT),
         ("UNITTEST/BTC", "30m", CandleType.SPOT),
         ("UNITTEST/BTC", "8m", CandleType.SPOT),
     }
@@ -122,8 +96,7 @@ def test_datahandler_ohlcv_get_available_data(testdatadir):
         ("XRP/USDT:USDT", "5m", "futures"),
         ("XRP/USDT:USDT", "1h", "futures"),
         ("XRP/USDT:USDT", "1h", "mark"),
-        ("XRP/USDT:USDT", "8h", "mark"),
-        ("XRP/USDT:USDT", "8h", "funding_rate"),
+        ("XRP/USDT:USDT", "1h", "funding_rate"),
     }
 
     paircombs = JsonGzDataHandler.ohlcv_get_available_data(testdatadir, TradingMode.SPOT)
@@ -285,7 +258,7 @@ def test_jsondatahandler_trades_load(testdatadir, caplog):
     dh.trades_load("XRP/ETH", TradingMode.SPOT)
     assert not log_has(logmsg, caplog)
 
-    # Test conversation is happening
+    # Test conversion is happening
     dh.trades_load("XRP/OLD", TradingMode.SPOT)
     assert log_has(logmsg, caplog)
 

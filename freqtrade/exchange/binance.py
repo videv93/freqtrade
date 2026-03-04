@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import ccxt
-from cachetools import TTLCache
 from pandas import DataFrame
 
 from freqtrade.constants import DEFAULT_DATAFRAME_COLUMNS
@@ -21,6 +20,7 @@ from freqtrade.exchange.common import retrier
 from freqtrade.exchange.exchange_types import FtHas, Tickers
 from freqtrade.exchange.exchange_utils_timeframe import timeframe_to_msecs
 from freqtrade.misc import deep_merge_dicts, json_load
+from freqtrade.util import FtTTLCache
 from freqtrade.util.datetime_helpers import dt_from_ts, dt_ts
 
 
@@ -48,9 +48,12 @@ class Binance(Exchange):
         "has_delisting": True,
     }
     _ft_has_futures: FtHas = {
+        "ohlcv_candle_limit": 499,
         "funding_fee_candle_limit": 1000,
         "stoploss_order_types": {"limit": "stop", "market": "stop_market"},
         "stoploss_blocks_assets": False,  # Stoploss orders do not block assets
+        "stoploss_query_requires_stop_flag": True,
+        "stoploss_algo_order_info_id": "actualOrderId",
         "tickers_have_price": False,
         "floor_leverage": True,
         "fetch_orders_limit_minutes": 7 * 1440,  # "fetch_orders" is limited to 7 days
@@ -66,6 +69,7 @@ class Binance(Exchange):
             "BFUSD": "USDT",
         },
     }
+    _can_use_data_download_fast = True
 
     _supported_trading_mode_margin_pairs: list[tuple[TradingMode, MarginMode]] = [
         (TradingMode.SPOT, MarginMode.NONE),
@@ -76,7 +80,7 @@ class Binance(Exchange):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._spot_delist_schedule_cache: TTLCache = TTLCache(maxsize=100, ttl=300)
+        self._spot_delist_schedule_cache: FtTTLCache = FtTTLCache(maxsize=100, ttl=300)
 
     def get_proxy_coin(self) -> str:
         """
@@ -179,7 +183,8 @@ class Binance(Exchange):
                     return DataFrame(columns=DEFAULT_DATAFRAME_COLUMNS)
 
         if (
-            self._config["exchange"].get("only_from_ccxt", False)
+            not self._can_use_data_download_fast
+            or self._config["exchange"].get("only_from_ccxt", False)
             or
             # only download timeframes with significant improvements,
             # otherwise fall back to rest API
@@ -403,7 +408,10 @@ class Binance(Exchange):
     ) -> tuple[str, list[list]]:
         logger.info(f"Fetching trades for {pair} from Binance, {from_id=}, {since=}, {until=}")
 
-        if not self._config["exchange"].get("only_from_ccxt", False):
+        if (
+            not self._config["exchange"].get("only_from_ccxt", False)
+            and self._can_use_data_download_fast
+        ):
             if from_id is None or not since:
                 trades = await self._api_async.fetch_trades(
                     pair,
@@ -544,3 +552,28 @@ class Binance(Exchange):
                 cache[ft_symbol] = delist_dt
 
         return cache.get(pair, None)
+
+
+class Binanceusdm(Binance):
+    """Binacne USDM Exchange
+    Same as Binance - only futures trading is supported (via ccxt).
+
+    Not actually necessary, binance should be preferred.
+    """
+
+    _supported_trading_mode_margin_pairs: list[tuple[TradingMode, MarginMode]] = [
+        (TradingMode.FUTURES, MarginMode.CROSS),
+        (TradingMode.FUTURES, MarginMode.ISOLATED),
+    ]
+
+
+class Binanceus(Binance):
+    """Binance US exchange class.
+    Minimal adjustment to disable futures trading for the US subsidiary of Binance
+    """
+
+    _supported_trading_mode_margin_pairs: list[tuple[TradingMode, MarginMode]] = [
+        (TradingMode.SPOT, MarginMode.NONE),
+    ]
+    # binance vision does not have data for binanceus
+    _can_use_data_download_fast = False

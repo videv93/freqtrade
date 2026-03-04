@@ -2,7 +2,7 @@
 Definition of cli arguments used in arguments.py
 """
 
-from argparse import ArgumentTypeError
+from argparse import SUPPRESS, ArgumentTypeError
 
 from freqtrade import constants
 from freqtrade.constants import (
@@ -38,8 +38,14 @@ def check_int_nonzero(value: str) -> int:
 
 class Arg:
     # Optional CLI arguments
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, fthelp: dict[str, str] | None = None, **kwargs):
+        """
+        CLI Arguments - used to build subcommand parsers consistently.
+        :param fthelp: dict - fthelp per command - should be "freqtrade <command>": help_text
+            If not provided or not found, 'help' from kwargs is used instead.
+        """
         self.cli = args
+        self.fthelp = fthelp
         self.kwargs = kwargs
 
 
@@ -174,7 +180,11 @@ AVAILABLE_CLI_OPTIONS = {
     "position_stacking": Arg(
         "--eps",
         "--enable-position-stacking",
-        help="Allow buying the same pair multiple times (position stacking).",
+        help=(
+            "Allow buying the same pair multiple times (position stacking). "
+            "Only applicable to backtesting and hyperopt. "
+            "Results archived by this cannot be reproduced in dry/live trading."
+        ),
         action="store_true",
         default=False,
     ),
@@ -205,9 +215,7 @@ AVAILABLE_CLI_OPTIONS = {
         "--strategy-list",
         help="Provide a space-separated list of strategies to backtest. "
         "Please note that timeframe needs to be set either in config "
-        "or via command line. When using this together with `--export trades`, "
-        "the strategy-name is injected into the filename "
-        "(so `backtest-data.json` becomes `backtest-data-SampleStrategy.json`",
+        "or via command line. ",
         nargs="+",
     ),
     "backtest_notes": Arg(
@@ -230,6 +238,14 @@ AVAILABLE_CLI_OPTIONS = {
     "exportfilename": Arg(
         "--backtest-filename",
         "--export-filename",
+        fthelp={
+            "freqtrade backtesting": (
+                "DEPRECATED: This option is deprecated for backtesting and will be removed "
+                "in a future release. "
+                "Using a custom filename for backtest results is no longer supported. "
+                "Use `--backtest-directory` to specify the directory."
+            ),
+        },
         help="Use this filename for backtest results."
         "Example: `--backtest-filename=backtest_results_2020-09-27_16-20-48.json`. "
         "Assumes either `user_data/backtest_results/` or `--export-directory` as base directory.",
@@ -378,6 +394,13 @@ AVAILABLE_CLI_OPTIONS = {
         help="Print only DEX exchanges.",
         action="store_true",
     ),
+    "list_exchanges_futures_options": Arg(
+        "--ccxt-show-futures-options-exchanges",
+        help=SUPPRESS,
+        # Show compatibility with ccxt for futures functionality
+        # Doesn't show in help as it's an internal/debug option.
+        action="store_true",
+    ),
     # List pairs / markets
     "list_pairs_all": Arg(
         "-a",
@@ -422,6 +445,14 @@ AVAILABLE_CLI_OPTIONS = {
     ),
     "candle_types": Arg(
         "--candle-types",
+        fthelp={
+            "freqtrade download-data": (
+                "Select candle type to download. "
+                "Defaults to the necessary candles for the selected trading mode "
+                "(e.g. 'spot' or ('futures', 'funding_rate' and 'mark') for futures)."
+            ),
+            "_": "Select candle type to convert. Defaults to all available types.",
+        },
         help="Select candle type to convert. Defaults to all available types.",
         choices=[c.value for c in CandleType],
         nargs="+",
