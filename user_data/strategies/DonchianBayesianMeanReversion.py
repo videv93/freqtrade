@@ -30,6 +30,8 @@ class DonchianBayesianMeanReversion(IStrategy):
         dataframe["donchian_mid"] = (dataframe["donchian_high"] + dataframe["donchian_low"]) / 2
         dataframe["mean"] = talib.SMA(dataframe["close"], timeperiod=self.window)
         dataframe["std"] = talib.STDDEV(dataframe["close"], timeperiod=self.window)
+        dataframe["entry_band_long"] = dataframe["mean"] - self.entry_std * dataframe["std"]
+        dataframe["entry_band_short"] = dataframe["mean"] + self.entry_std * dataframe["std"]
         dataframe["zscore"] = (
             (dataframe["close"] - dataframe["mean"])
             / (dataframe["std"] + 1e-10)  # Avoid division by zero
@@ -81,6 +83,8 @@ class DonchianBayesianMeanReversion(IStrategy):
                 "mean": {"color": "orange", "type": "line"},
                 "donchian_high": {"color": "gray", "type": "line"},
                 "donchian_low": {"color": "gray", "type": "line"},
+                "entry_band_long": {"color": "green", "type": "line"},
+                "entry_band_short": {"color": "red", "type": "line"}
             },
             "subplots": {
                 "zscore": {
